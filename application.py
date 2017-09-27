@@ -39,6 +39,44 @@ def index():
 @login_required
 def buy():
     """Buy shares of stock."""
+    
+    if request.method == "GET":
+        return render_template("buy.html")
+    elif request.method == "POST":
+        if not request.form.get("symbol"):
+            return apology("Please enter a Symbol")
+        if not request.form.get("amount"):
+            return apology("Please enter the amount of shares to buy")
+            
+        try:
+            share = lookup(request.form.get("symbol"))
+            if not share:
+                return apology("Share with symbol " + request.form.get("symbol") + " not found")
+            priceofoneshare = share["price"]
+            cost = priceofoneshare * float(request.form.get("amount"))
+        except:
+            return apology("Error")
+        
+        #try:
+        user = db.execute("SELECT * FROM users WHERE id = :userId", userId=str(session["user_id"]))
+            #print("SELECT * FROM users WHERE id = " + session["user_id"])
+        #except:
+        #   return apology()
+        
+        if user[0]["cash"] < cost:
+            return apology("Not enough cash")
+        else:
+            remaining = user[0]["cash"] - cost
+            
+            old = db.execute("SELECT * FROM stocks WHERE userId = :userId AND symbol = :symbol", userId=session["user_id"], symbol=request.form.get("symbol").upper())
+            
+            if len(old) != 1:
+                db.execute("INSERT INTO stocks (userId,symbol,amount) VALUES (:userId,:symbol,:amount)", userId=session["user_id"], symbol=request.form.get("symbol").upper(), amount=float(request.form.get("amount")))
+            else:
+                db.execute("UPDATE stocks SET amount = :amount WHERE id=:rid", amount=(old[0]["amount"]+float(request.form.get("amount"))), rid=old[0]["id"])
+            db.execute("INSERT INTO history (userId,symbol,amount) VALUES (:userId,:symbol,:amount)", userId=session["user_id"], symbol=request.form.get("symbol").upper(), amount=float(request.form.get("amount")))
+            db.execute("UPDATE users SET cash = :cash WHERE id=:userId", cash=remaining, userId=session["user_id"])
+            return apology("DONE?")
     return apology("TODO")
 
 @app.route("/history")
